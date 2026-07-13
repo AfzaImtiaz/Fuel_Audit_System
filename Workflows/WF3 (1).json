@@ -1,0 +1,461 @@
+{
+  "name": "WF3",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "005538e5-a64c-467a-962d-41288f331750",
+      "name": "Every 5 Minutes Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        240
+      ],
+      "notes": "Replaces the Google Sheets Trigger node, which has a known-unreliable OAuth2 credential dropdown in several n8n versions. Same Schedule Trigger node type already working flawlessly in WF1 (daily 8pm) and WF2 (Sunday 7am) -- just on a 5-minute interval here since this workflow needs to behave close to real-time."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Trip_Data",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "29876586-9ef3-4582-a57d-a93180b1fac7",
+      "name": "Read Trip_Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        48,
+        240
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Plain Google Sheets read node -- the type whose credential dropdown has auto-populated correctly for you every time in WF1 and WF2. Reads the whole sheet each run; the next node filters out anything already alerted."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Uses n8n's built-in workflow static data as a lightweight memory of which\n// Trip_IDs have already been alerted on -- persists automatically between\n// scheduled runs, no extra sheet or setup required.\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.alertedTripIds) staticData.alertedTripIds = [];\n\nconst allRows = $input.all().map(i => i.json);\n\nconst highVarianceRows = allRows.filter(r =>\n  r.Flag_Colour === 'RED' ||\n  r.High_Variance_Unmatched_Alert === true ||\n  r.High_Variance_Unmatched_Alert === 'TRUE'\n);\n\nconst newRows = highVarianceRows.filter(r => !staticData.alertedTripIds.includes(r.Trip_ID));\n\n// Remember these so the next 5-minute poll doesn't re-alert on them.\nfor (const r of newRows) {\n  staticData.alertedTripIds.push(r.Trip_ID);\n}\n\n// Cap memory so it doesn't grow forever across months of runs.\nif (staticData.alertedTripIds.length > 500) {\n  staticData.alertedTripIds = staticData.alertedTripIds.slice(-500);\n}\n\nreturn newRows.map(r => ({ json: r }));"
+      },
+      "id": "cdbe097d-6b71-45e9-943a-70d64d8194a5",
+      "name": "Detect New High-Variance Trips",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        240
+      ],
+      "notes": "This one node replaces both the old Google Sheets Trigger AND the old High Variance Filter IF node. It does two jobs: (1) the same RED/High_Variance_Unmatched_Alert check as before, (2) dedup against alerts already sent, using Trip_ID as the unique key (e.g. 'TRK-001_2026-07-02'). If nothing new, it returns 0 items and everything downstream simply does nothing that run -- no error, no empty-sheet crash risk since this is a Code node, not a Sheets read."
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $json;\n\nconst pct = (r.Variance_Percent !== null && r.Variance_Percent !== undefined && r.Variance_Percent !== '')\n  ? Number(r.Variance_Percent).toFixed(2)\n  : 'N/A';\nconst pkr = (r.Variance_PKR !== null && r.Variance_PKR !== undefined && r.Variance_PKR !== '')\n  ? Number(r.Variance_PKR).toLocaleString()\n  : 'N/A';\n\nconst reason = (r.Flag_Colour === 'RED')\n  ? `RED flag - ${pct}% variance, above the Red_Threshold_Pct in Config`\n  : 'High-variance unmatched trip - no Form_Responses match found, but the underlying GPS/claim gap still exceeds threshold';\n\nconst text = `:rotating_light: *Real-Time Fuel Variance Alert*\\n*Truck:* ${r.Truck_ID || 'UNKNOWN'} (${r.Registration || 'N/A'})\\n*Driver:* ${r.Driver_ID || 'UNKNOWN'}\\n*Trip:* ${r.Trip_ID || 'N/A'} on ${r.Trip_Date || 'N/A'}\\n*Variance:* PKR ${pkr} (${pct}%)\\n*Reason:* ${reason}\\n*Status:* ${r.Reconciliation_Status || 'N/A'}`;\n\nreturn [{ json: {\n  text,\n  Truck_ID: r.Truck_ID || '',\n  Registration: r.Registration || '',\n  Driver_ID: r.Driver_ID || '',\n  Trip_ID: r.Trip_ID || ''\n} }];"
+      },
+      "id": "f1ab8d40-af0f-484f-8658-93ebd7f9993b",
+      "name": "Format Real-Time Alert Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: \"new-channel\", text: $json.text }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "1c9048a2-8381-4584-9f9a-6684cd676d5b",
+      "name": "Post Real-Time Alert to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        816,
+        240
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "UiRBACFZpfjndzoe",
+          "name": "Slack account"
+        }
+      },
+      "notes": "Same slackApi credential confirmed working in WF2. Method explicitly POST. Channel hardcoded to 'new-channel'."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "d3c3e3f3-0006-4003-8003-000000000006"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f424848c-51b7-43e5-8234-d206aefb773e",
+      "name": "Slack Post Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        240
+      ],
+      "notes": "Checks Slack's own body.ok, not just HTTP statusCode -- Slack returns 200 with ok:false on things like missing_scope or channel_not_found."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DLQ_Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "DLQ_ID": "={{ 'DLQ-' + $now.toFormat('yyyyMMddHHmmss') + '-' + $itemIndex }}",
+            "Timestamp": "={{ $now.toISO() }}",
+            "Execution_ID": "={{ $execution.id }}",
+            "Failed_Node": "Post Real-Time Alert to Slack",
+            "Record_Type": "SLACK_ALERT",
+            "Vehicle_ID": "={{ $json.Truck_ID }}",
+            "Registration": "={{ $json.Registration }}",
+            "Driver_ID": "={{ $json.Driver_ID }}",
+            "HTTP_Status": "={{ $json.statusCode }}",
+            "Error_Category": "SLACK_POST_FAILED",
+            "Raw_Error": "={{ JSON.stringify($json.body || {}).slice(0, 1500) }}",
+            "Retry_Count": 0,
+            "Action_Flag": "NEEDS_MANUAL_REVIEW",
+            "Resolved_Flag": "FALSE",
+            "Resolved_At": "",
+            "Resolution_Notes": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "DLQ_ID",
+              "displayName": "DLQ_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Execution_ID",
+              "displayName": "Execution_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Failed_Node",
+              "displayName": "Failed_Node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Record_Type",
+              "displayName": "Record_Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Vehicle_ID",
+              "displayName": "Vehicle_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Registration",
+              "displayName": "Registration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Driver_ID",
+              "displayName": "Driver_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "HTTP_Status",
+              "displayName": "HTTP_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error_Category",
+              "displayName": "Error_Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Raw_Error",
+              "displayName": "Raw_Error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Retry_Count",
+              "displayName": "Retry_Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Action_Flag",
+              "displayName": "Action_Flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolved_Flag",
+              "displayName": "Resolved_Flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolved_At",
+              "displayName": "Resolved_At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolution_Notes",
+              "displayName": "Resolution_Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "afd9c8a6-b2b9-4746-ac55-7e6912f2fed1",
+      "name": "Append DLQ - Slack Alert Failed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1328,
+        368
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Same DLQ_Log schema as before, Record_Type = SLACK_ALERT."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 5 Minutes Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Trip_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Trip_Data": {
+      "main": [
+        [
+          {
+            "node": "Detect New High-Variance Trips",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect New High-Variance Trips": {
+      "main": [
+        [
+          {
+            "node": "Format Real-Time Alert Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Real-Time Alert Message": {
+      "main": [
+        [
+          {
+            "node": "Post Real-Time Alert to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Real-Time Alert to Slack": {
+      "main": [
+        [
+          {
+            "node": "Slack Post Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Post Success?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Append DLQ - Slack Alert Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c8014e09-f762-4848-b004-9a4119f31c6b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8e3614ecbb797f067415d39064bc0ff479890030a44a52ba36985e5c34cc027c"
+  },
+  "nodeGroups": [],
+  "id": "mupuGUd7LDsJ0mWq",
+  "tags": []
+}

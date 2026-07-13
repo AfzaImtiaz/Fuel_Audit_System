@@ -1,0 +1,22 @@
+# n8n
+.n8n/
+*.log
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets -- never commit real credentials
+*.env
+credentials.json

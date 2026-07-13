@@ -1,0 +1,519 @@
+{
+  "name": "WF2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "ca521e10-ad24-4ba5-b16c-29d6c9b5a768",
+      "name": "Weekly Sunday 7AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        768
+      ],
+      "notes": "Fires 07:00 every Sunday. Set workflow-level Settings > Timezone to Asia/Karachi (same as WF1) or this fires against server-local time instead."
+    },
+    {
+      "parameters": {
+        "jsCode": "const nowKarachi = $now.setZone('Asia/Karachi');\nconst weekEnding = nowKarachi.minus({ days: 1 }); // Saturday just gone\nconst weekStart = weekEnding.minus({ days: 6 }); // Sunday before that\nreturn [{ json: {\n  weekStartStr: weekStart.toFormat('yyyy-MM-dd'),\n  weekEndingStr: weekEnding.toFormat('yyyy-MM-dd')\n} }];"
+      },
+      "id": "d8910dc9-dfc5-4e7a-9086-68129a8646ca",
+      "name": "Compute Week Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        768
+      ],
+      "notes": "Aggregation window is the 7 days ending yesterday (Sat), same 'yesterday-anchored' convention WF1 uses for its daily window."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Trip_Data",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "f2c768f0-75c6-4d41-b3b5-3189f563a6f2",
+      "name": "Read Trip_Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -176,
+        768
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "alwaysOutputData=true carried over from WF1's fix — an empty Trip_Data sheet must not silently kill every downstream node."
+    },
+    {
+      "parameters": {
+        "jsCode": "function toDateStr(raw) {\n  if (raw === null || raw === undefined || raw === '') return null;\n  const s = String(raw).trim();\n  if (/^\\d{4}-\\d{2}-\\d{2}/.test(s)) return s.slice(0, 10);\n  const d = new Date(s);\n  if (isNaN(d.getTime())) return null;\n  const yyyy = d.getFullYear();\n  const mm = String(d.getMonth() + 1).padStart(2, '0');\n  const dd = String(d.getDate()).padStart(2, '0');\n  return `${yyyy}-${mm}-${dd}`;\n}\n\n// RISK_TIER THRESHOLDS -- not specified in the handoff/brief, this is an\n// assumption. Change here if you want different cutoffs:\n//   RED_Flag_Count_Week >= 3  -> HIGH\n//   RED_Flag_Count_Week >= 1  -> MEDIUM\n//   else                      -> LOW\n\nconst window = $('Compute Week Window').first().json;\nconst weekStart = window.weekStartStr;\nconst weekEnd = window.weekEndingStr;\n\nconst tripRows = $('Read Trip_Data').all().map(i => i.json);\n\nconst inWindow = tripRows.filter(r => {\n  const d = toDateStr(r.Trip_Date);\n  return d && d >= weekStart && d <= weekEnd;\n});\n\nconst byDriver = {};\nfor (const r of inWindow) {\n  const id = r.Driver_ID;\n  if (!id) continue;\n  if (!byDriver[id]) {\n    byDriver[id] = {\n      Driver_ID: id,\n      Total_Trips_Week: 0,\n      Total_GPS_Km_Week: 0,\n      Total_Claimed_Km_Week: 0,\n      Total_Variance_Km_Week: 0,\n      Total_Variance_PKR_Week: 0,\n      variancePctSum: 0,\n      RED_Flag_Count_Week: 0,\n      AMBER_Flag_Count_Week: 0\n    };\n  }\n  const d = byDriver[id];\n  d.Total_Trips_Week += 1;\n  d.Total_GPS_Km_Week += Number(r.GPS_Km) || 0;\n  d.Total_Claimed_Km_Week += Number(r.Claimed_Km) || 0;\n  d.Total_Variance_Km_Week += Number(r.Variance_Km) || 0;\n  d.Total_Variance_PKR_Week += Number(r.Variance_PKR) || 0;\n  d.variancePctSum += Number(r.Variance_Percent) || 0;\n  if (r.Flag_Colour === 'RED') d.RED_Flag_Count_Week += 1;\n  if (r.Flag_Colour === 'AMBER') d.AMBER_Flag_Count_Week += 1;\n}\n\nlet drivers = Object.values(byDriver).map(d => {\n  const avgPct = d.Total_Trips_Week > 0 ? d.variancePctSum / d.Total_Trips_Week : 0;\n  let riskTier = 'LOW';\n  if (d.RED_Flag_Count_Week >= 3) riskTier = 'HIGH';\n  else if (d.RED_Flag_Count_Week >= 1) riskTier = 'MEDIUM';\n  return {\n    Week_Ending_Date: weekEnd,\n    Driver_ID: d.Driver_ID,\n    Total_Trips_Week: d.Total_Trips_Week,\n    Total_GPS_Km_Week: Number(d.Total_GPS_Km_Week.toFixed(2)),\n    Total_Claimed_Km_Week: Number(d.Total_Claimed_Km_Week.toFixed(2)),\n    Total_Variance_Km_Week: Number(d.Total_Variance_Km_Week.toFixed(2)),\n    Total_Variance_PKR_Week: Number(d.Total_Variance_PKR_Week.toFixed(2)),\n    Avg_Variance_Percent_Week: Number(avgPct.toFixed(2)),\n    RED_Flag_Count_Week: d.RED_Flag_Count_Week,\n    AMBER_Flag_Count_Week: d.AMBER_Flag_Count_Week,\n    Risk_Tier: riskTier\n  };\n});\n\n// Rank by Total_Variance_PKR_Week descending, per project owner confirmation.\ndrivers.sort((a, b) => b.Total_Variance_PKR_Week - a.Total_Variance_PKR_Week);\ndrivers = drivers.map((d, idx) => ({ ...d, Fleet_Rank_This_Week: idx + 1 }));\n\nconst top5 = drivers.slice(0, 5);\nconst totalFleetVariancePKR = drivers.reduce((s, d) => s + d.Total_Variance_PKR_Week, 0);\n\nreturn [{ json: {\n  weekStart,\n  weekEnd,\n  drivers,\n  top5,\n  totalFleetVariancePKR: Number(totalFleetVariancePKR.toFixed(2)),\n  driverCount: drivers.length\n} }];"
+      },
+      "id": "f29bd12d-5871-42e6-b878-32b1e325d513",
+      "name": "Aggregate Driver Weekly Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        768
+      ],
+      "notes": "Single output item bundling all drivers + top5 + fleet total, so downstream nodes can reference either the full list or the summary without a fragile merge."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.driverCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "id": "b1a1c1d1-0005-4001-8001-000000000005"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d07ddac0-c656-49d8-ae56-7231c7791a96",
+      "name": "Any Trips This Week?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        336,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.drivers.map(d => ({ json: d }));"
+      },
+      "id": "0c4570e8-d96e-4a97-b736-d44c3d544949",
+      "name": "Split Driver Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        640
+      ],
+      "notes": "Fans the single aggregation item out into one item per driver so the Sheets append node writes one row per driver."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Driver_Summary",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Week_Ending_Date": "={{ $json.Week_Ending_Date }}",
+            "Driver_ID": "={{ $json.Driver_ID }}",
+            "Total_Trips_Week": "={{ $json.Total_Trips_Week }}",
+            "Total_GPS_Km_Week": "={{ $json.Total_GPS_Km_Week }}",
+            "Total_Claimed_Km_Week": "={{ $json.Total_Claimed_Km_Week }}",
+            "Total_Variance_Km_Week": "={{ $json.Total_Variance_Km_Week }}",
+            "Total_Variance_PKR_Week": "={{ $json.Total_Variance_PKR_Week }}",
+            "Avg_Variance_Percent_Week": "={{ $json.Avg_Variance_Percent_Week }}",
+            "RED_Flag_Count_Week": "={{ $json.RED_Flag_Count_Week }}",
+            "AMBER_Flag_Count_Week": "={{ $json.AMBER_Flag_Count_Week }}",
+            "Risk_Tier": "={{ $json.Risk_Tier }}",
+            "Fleet_Rank_This_Week": "={{ $json.Fleet_Rank_This_Week }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Week_Ending_Date",
+              "displayName": "Week_Ending_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Driver_ID",
+              "displayName": "Driver_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total_Trips_Week",
+              "displayName": "Total_Trips_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total_GPS_Km_Week",
+              "displayName": "Total_GPS_Km_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total_Claimed_Km_Week",
+              "displayName": "Total_Claimed_Km_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total_Variance_Km_Week",
+              "displayName": "Total_Variance_Km_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total_Variance_PKR_Week",
+              "displayName": "Total_Variance_PKR_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Avg_Variance_Percent_Week",
+              "displayName": "Avg_Variance_Percent_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RED_Flag_Count_Week",
+              "displayName": "RED_Flag_Count_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AMBER_Flag_Count_Week",
+              "displayName": "AMBER_Flag_Count_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Risk_Tier",
+              "displayName": "Risk_Tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fleet_Rank_This_Week",
+              "displayName": "Fleet_Rank_This_Week",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "55bb8be4-1b5d-45e1-999d-9f1f0b292276",
+      "name": "Append Driver_Summary Rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        848,
+        640
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Writes exactly the 12 confirmed live columns from the handoff doc's Driver_Summary schema. Driver_Full_Name intentionally excluded per that sheet's own note (join from Master_Drivers if ever needed)."
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Aggregate Driver Weekly Stats').first().json;\n\nconst lines = data.top5.map((d, i) =>\n  `${i + 1}. *${d.Driver_ID}* — PKR ${d.Total_Variance_PKR_Week.toLocaleString()} variance (${d.Avg_Variance_Percent_Week}% avg, ${d.RED_Flag_Count_Week} RED trip(s), Risk: ${d.Risk_Tier})`\n).join('\\n');\n\nconst text = `*Weekly Fuel Variance Report*\\nWeek: ${data.weekStart} to ${data.weekEnd}\\nTotal fleet variance: PKR ${data.totalFleetVariancePKR.toLocaleString()} across ${data.driverCount} driver(s)\\n\\n*Top 5 Variance Drivers:*\\n${lines}`;\n\nreturn [{ json: { text } }];"
+      },
+      "id": "74dbd350-4dc3-4ea7-ada4-1009cf8694f1",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: \"new-channel\", text: $json.text }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "da2ed4b8-7b9b-4891-a280-c6c353a217d3",
+      "name": "Post Top5 Report to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        848,
+        896
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klz2oaVqbtlwmDfd",
+          "name": "Header Auth account"
+        },
+        "slackApi": {
+          "id": "UiRBACFZpfjndzoe",
+          "name": "Slack account"
+        }
+      },
+      "notes": "Calls Slack's chat.postMessage directly via HTTP, same Bearer pattern as WF1's Traccar call -- avoids Slack-node credential-type/version mismatches. Channel is hardcoded to 'new-channel'; change the jsonBody if you want a different channel or to reference it dynamically."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: \"new-channel\", text: `No Trip_Data rows found for the week ending ${$json.weekEnd}. Nothing to report or write to Driver_Summary this run.` }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "c523898f-2d75-4c4d-a23a-539c393f313c",
+      "name": "Post No-Data Notice to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        1024
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "klz2oaVqbtlwmDfd",
+          "name": "Header Auth account"
+        },
+        "slackApi": {
+          "id": "UiRBACFZpfjndzoe",
+          "name": "Slack account"
+        }
+      },
+      "notes": "Fires only on the False branch of 'Any Trips This Week?' -- so a quiet week is visible in Slack instead of silently writing nothing."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Weekly Sunday 7AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Compute Week Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Week Window": {
+      "main": [
+        [
+          {
+            "node": "Read Trip_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Trip_Data": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Driver Weekly Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Driver Weekly Stats": {
+      "main": [
+        [
+          {
+            "node": "Any Trips This Week?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Trips This Week?": {
+      "main": [
+        [
+          {
+            "node": "Split Driver Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post No-Data Notice to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Driver Rows": {
+      "main": [
+        [
+          {
+            "node": "Append Driver_Summary Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Post Top5 Report to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "483d54db-6838-4e20-8e71-49126f3eafbd",
+  "meta": {
+    "instanceId": "8e3614ecbb797f067415d39064bc0ff479890030a44a52ba36985e5c34cc027c"
+  },
+  "nodeGroups": [],
+  "id": "vBURouk1xzhz8kCe",
+  "tags": []
+}

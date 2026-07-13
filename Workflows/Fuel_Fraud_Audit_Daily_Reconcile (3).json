@@ -1,0 +1,2096 @@
+{
+  "name": "Fuel_Fraud_Audit_Daily_Reconcile",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 * * *"
+            }
+          ]
+        }
+      },
+      "id": "ea0db298-94a2-4c93-aa4c-eb5419c1103c",
+      "name": "Daily 8PM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2816,
+        1968
+      ],
+      "notes": "Fires 20:00 daily. Workflow-level Settings > Timezone is set to Asia/Karachi."
+    },
+    {
+      "parameters": {
+        "jsCode": "const nowKarachi = $now.setZone('Asia/Karachi');\nconst yesterday = nowKarachi.minus({ days: 1 });\nconst dateStr = yesterday.toFormat('yyyy-MM-dd');\nconst fromISO = yesterday.startOf('day').toUTC().toISO();\nconst toISO = yesterday.endOf('day').toUTC().toISO();\nreturn [{ json: { dateStr, fromISO, toISO } }];"
+      },
+      "id": "e27c2c21-26fb-4280-bbcf-0659d842bde3",
+      "name": "Compute Date Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3056,
+        1968
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Master_Trucks",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "615dcc9b-13ab-4c3b-a0b1-6ce15732e0d2",
+      "name": "Read Master_Trucks",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3312,
+        1696
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { masterTrucks: items.map(i => i.json) } }];"
+      },
+      "id": "43c6aa41-5b21-4666-a4dc-0a617dbfcb43",
+      "name": "Wrap Master_Trucks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Form_Responses",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "5448e5eb-6a1f-45da-9cd4-afc78fc92a78",
+      "name": "Read Form_Responses",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3312,
+        1888
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { formResponses: items.map(i => i.json) } }];"
+      },
+      "id": "4b80c29d-490d-4a44-9507-87e828de50af",
+      "name": "Wrap Form_Responses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Driver_ID_Lookup",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "28a21625-cdb2-480e-aad4-448aa2f2cd10",
+      "name": "Read Driver_ID_Lookup",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3312,
+        2064
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { driverLookup: items.map(i => i.json) } }];"
+      },
+      "id": "fa7f5212-de0b-44c7-a98e-9257c3d7c18c",
+      "name": "Wrap Driver_ID_Lookup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        2064
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Config",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "5fd4c20c-602b-4672-a007-8cef57ca3c72",
+      "name": "Read Config",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3312,
+        2240
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: trims Parameter names before using them as config keys.\n// A stray leading/trailing space on a Config row (e.g. \" Reconciliation_Date_Override\")\n// silently breaks any downstream lookup by exact key name (config.Reconciliation_Date_Override\n// would be undefined even though the row exists), with no error thrown anywhere.\nconst config = {};\nfor (const item of items) {\n  const p = String(item.json.Parameter || '').trim();\n  let v = item.json.Value;\n  if (p && (v === 'TRUE' || v === 'FALSE')) v = (v === 'TRUE');\n  if (p) config[p] = v;\n}\nreturn [{ json: { config } }];"
+      },
+      "id": "07670e65-9aff-4311-bb44-8f47fe8f09f7",
+      "name": "Wrap Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { dateWindow: $('Compute Date Window').first().json } }];"
+      },
+      "id": "1a66527e-98a1-41ca-80c0-4776c6c22a02",
+      "name": "Wrap Date Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 5,
+        "options": {}
+      },
+      "id": "1ecc1182-b10b-4600-870a-1810139b9973",
+      "name": "Combine Reference Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3872,
+        2064
+      ],
+      "notes": "5 inputs merged by position, each contributing exactly 1 item."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Applies Config!Reconciliation_Date_Override if present (test/demo mode),\n// otherwise uses the real \"yesterday\" computed upstream. Leave the Config\n// row blank/absent for production so it defaults to real yesterday.\n//\n// FIXED (previous version only overrode dateStr and left fromISO/toISO\n// pointing at the real-yesterday window, so the Traccar GPS query and the\n// form-matching logic silently checked two different dates). Now both are\n// rebuilt together from the override, in Asia/Karachi (+05:00, no DST).\nconst data = items[0].json;\nconst active = data.masterTrucks.filter(t => String(t.Active_Flag).toUpperCase() === 'TRUE');\n\nconst override = data.config && data.config.Reconciliation_Date_Override;\nconst overrideStr = (override && String(override).trim() !== '') ? String(override).trim() : null;\n\nlet dateWindow;\nif (overrideStr) {\n  dateWindow = {\n    dateStr: overrideStr,\n    fromISO: `${overrideStr}T00:00:00+05:00`,\n    toISO: `${overrideStr}T23:59:59+05:00`\n  };\n} else {\n  dateWindow = data.dateWindow;\n}\n\nreturn active.map(truck => ({ json: {\n  truck,\n  formResponses: data.formResponses,\n  driverLookup: data.driverLookup,\n  config: data.config,\n  dateWindow\n} }));"
+      },
+      "id": "33781a32-34e8-4431-877b-04fe87afe102",
+      "name": "Filter Active Trucks + To Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4176,
+        2064
+      ],
+      "notes": "PATCHED: reads Config!Reconciliation_Date_Override and substitutes it for real \"yesterday\" when present. This is where the override actually needs to apply, since Config and the date window both arrive together here."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "5b0e09eb-4251-49a7-8337-775fd1b70dec",
+      "name": "Loop Trucks",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        4432,
+        2064
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://x5mwdk7xw.traccar.com/api/reports/trips",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBearerAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "deviceId",
+              "value": "={{ $json.truck.Traccar_Device_Id }}"
+            },
+            {
+              "name": "from",
+              "value": "={{ $json.dateWindow.fromISO }}"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.dateWindow.toISO }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "5bf64ae0-7aef-4172-b791-86b0b4b1a3df",
+      "name": "Traccar GET Trips",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4720,
+        1936
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "HKUajz6MxxUN9Rh8",
+          "name": "Bearer Auth account"
+        }
+      },
+      "notes": "Bearer token auth against self-hosted Traccar. Token via POST /api/session/token, never hardcode the password."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "id": "73b4a95e-9d87-4fda-918a-1648fedd137a"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7323b0b9-01eb-4628-8610-d07ecf2c2848",
+      "name": "Traccar Call OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4912,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DLQ_Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "DLQ_ID": "={{ 'DLQ-' + $now.toFormat('yyyyMMddHHmmss') + '-' + $itemIndex }}",
+            "Timestamp": "={{ $now.toISO() }}",
+            "Execution_ID": "={{ $execution.id }}",
+            "Failed_Node": "Traccar GET Trips",
+            "Record_Type": "GPS",
+            "Vehicle_ID": "={{ $('Loop Trucks').item.json.truck.Truck_ID }}",
+            "Registration": "={{ $('Loop Trucks').item.json.truck.Registration }}",
+            "Driver_ID": "",
+            "HTTP_Status": "={{ $json.statusCode }}",
+            "Error_Category": "={{ $json.statusCode === 429 ? 'RATE_LIMIT' : ($json.statusCode >= 500 ? 'SERVER_ERROR' : ($json.statusCode === 401 || $json.statusCode === 403 ? 'AUTH' : 'GPS_FETCH_FAILED')) }}",
+            "Raw_Error": "={{ JSON.stringify($json.body || $json).slice(0, 1500) }}",
+            "Retry_Count": 0,
+            "Action_Flag": "NEEDS_MANUAL_REVIEW",
+            "Resolved_Flag": "FALSE",
+            "Resolved_At": "",
+            "Resolution_Notes": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "DLQ_ID",
+              "displayName": "DLQ_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Execution_ID",
+              "displayName": "Execution_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Failed_Node",
+              "displayName": "Failed_Node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Record_Type",
+              "displayName": "Record_Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Vehicle_ID",
+              "displayName": "Vehicle_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Registration",
+              "displayName": "Registration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Driver_ID",
+              "displayName": "Driver_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "HTTP_Status",
+              "displayName": "HTTP_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error_Category",
+              "displayName": "Error_Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Raw_Error",
+              "displayName": "Raw_Error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Retry_Count",
+              "displayName": "Retry_Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Action_Flag",
+              "displayName": "Action_Flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolved_Flag",
+              "displayName": "Resolved_Flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolved_At",
+              "displayName": "Resolved_At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolution_Notes",
+              "displayName": "Resolution_Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "476d6496-1126-4ae8-9b3e-07174b71b450",
+      "name": "Append DLQ - Traccar Error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5648,
+        1824
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const truckCtx = $('Loop Trucks').item.json;\nconst body = $json.body || $json;\nconst trips = Array.isArray(body) ? body : [];\nconst norm = (s) => String(s || '').trim().toLowerCase();\nconst deviceName = truckCtx.truck.Traccar_Device_Name;\nconst dateStr = truckCtx.dateWindow.dateStr;\nconst cfg = truckCtx.config;\n\n// PATCHED: robust date parser. Google Sheets can hand back dates in ISO\n// (2026-07-02), US slash format (7/2/2026), or a full datetime string,\n// depending on cell formatting/locale. The old code did\n// String(f['Trip_Start_Date']).slice(0,10) === dateStr, which only works\n// for ISO strings and silently fails (NO_FORM_MATCH) on anything else.\nfunction toDateStr(raw) {\n  if (raw === null || raw === undefined || raw === '') return null;\n  const s = String(raw).trim();\n  // Already ISO-like (2026-07-02 or 2026-07-02T...)\n  if (/^\\d{4}-\\d{2}-\\d{2}/.test(s)) return s.slice(0, 10);\n  const d = new Date(s);\n  if (isNaN(d.getTime())) return null;\n  const yyyy = d.getFullYear();\n  const mm = String(d.getMonth() + 1).padStart(2, '0');\n  const dd = String(d.getDate()).padStart(2, '0');\n  return `${yyyy}-${mm}-${dd}`;\n}\n\nconst realTrips = trips.filter(t => t.distance > 1000);\nconst totalDistance = realTrips.reduce((sum, t) => sum + t.distance, 0);\nconst totalFuel = realTrips.reduce((sum, t) => sum + (t.spentFuel || 0), 0);\nconst totalDuration = realTrips.reduce((sum, t) => sum + t.duration, 0);\nconst aggregatedTrip = realTrips.length ? {\n  distance: totalDistance,\n  spentFuel: totalFuel,\n  startTime: realTrips[0].startTime,\n  endTime: realTrips[realTrips.length - 1].endTime,\n  duration: totalDuration,\n  driverUniqueId: realTrips[0].driverUniqueId\n} : null;\n\nif (!aggregatedTrip) {\n  return [{ json: { matched: false, reason: 'NO_TRACCAR_TRIP', truck: truckCtx.truck, dateStr } }];\n}\n\nconst form = truckCtx.formResponses.find(f =>\n  norm(f['Assigned_Truck_Registration']) === norm(deviceName) &&\n  toDateStr(f['Trip_Start_Date']) === dateStr\n);\n\nif (!form) {\n  return [{ json: { matched: false, reason: 'NO_FORM_MATCH', truck: truckCtx.truck, dateStr } }];\n}\n\nconst driverEntry = truckCtx.driverLookup.find(d => d.Driver_ID === form.Driver_ID) || null;\n\nconst GPS_Km = aggregatedTrip.distance / 1000;\nconst Claimed_Km = Number(form.Claimed_Trip_Distance_Km);\nconst Variance_Km = Claimed_Km - GPS_Km;\n\nconst efficiency = (truckCtx.truck.Fuel_Efficiency_KmL && truckCtx.truck.Fuel_Efficiency_KmL !== '')\n  ? Number(truckCtx.truck.Fuel_Efficiency_KmL)\n  : Number(cfg.Default_Truck_Fuel_Efficiency_KmL);\n\nconst GPS_Fuel_Theoretical_Litres = GPS_Km / efficiency;\nconst Traccar_Fuel_Consumed_Litres = (aggregatedTrip.spentFuel !== undefined && aggregatedTrip.spentFuel !== null)\n  ? aggregatedTrip.spentFuel\n  : null;\nconst Claimed_Fuel_Litres = Number(form.Fuel_Added_This_Trip_Litres);\nconst Fuel_Variance_Litres = (Traccar_Fuel_Consumed_Litres !== null)\n  ? Claimed_Fuel_Litres - Traccar_Fuel_Consumed_Litres\n  : null;\nconst Fuel_variance_pct = (Traccar_Fuel_Consumed_Litres && Traccar_Fuel_Consumed_Litres !== 0)\n  ? (Fuel_Variance_Litres / Traccar_Fuel_Consumed_Litres) * 100\n  : null;\n\nconst Variance_Percent = GPS_Km !== 0 ? (Variance_Km / GPS_Km) * 100 : null;\nconst Variance_PKR = Variance_Km * (Number(cfg.Fuel_Cost_Per_Litre) / efficiency);\n\nlet Flag_Colour = 'GREY_UNMATCHED';\nif (Variance_Percent !== null) {\n  const absPct = Math.abs(Variance_Percent);\n  if (absPct <= Number(cfg.Amber_Threshold_Pct)) Flag_Colour = 'GREEN';\n  else if (absPct <= Number(cfg.Red_Threshold_Pct)) Flag_Colour = 'AMBER';\n  else Flag_Colour = 'RED';\n}\n\nconst Trip_Duration_Minutes = aggregatedTrip.duration / 60;\n\nconst demoMode = String(cfg.Demo_Mode).toUpperCase() === 'TRUE' || cfg.Demo_Mode === true;\nconst GPS_Start_Odometer_Km = demoMode ? Number(form.Start_Odometer_Reading_Km) : null;\nconst GPS_End_Odometer_Km = demoMode ? Number(form.End_Odometer_Reading_Km) : null;\nconst Idle_Minutes = demoMode ? Math.round(Trip_Duration_Minutes * Number(cfg.Demo_Idle_Time_Pct_Placeholder)) : null;\n\nconst High_Variance_Unmatched_Alert = (Flag_Colour === 'GREY_UNMATCHED') ? false : (Math.abs(Variance_Percent) > Number(cfg.Red_Threshold_Pct));\n\nconst Reconciliation_Key = `${truckCtx.truck.Truck_ID}|${dateStr}|${form.Driver_ID}`;\nconst Idempotency_Key = `${truckCtx.truck.Truck_ID}|${aggregatedTrip.startTime}|${form.Driver_ID}|${GPS_Km}`;\n\nreturn [{ json: {\n  matched: true,\n  truck: truckCtx.truck,\n  dateStr,\n  trip: aggregatedTrip,\n  form,\n  driverEntry,\n  calc: {\n    Trip_ID: `${truckCtx.truck.Truck_ID}_${dateStr}`,\n    Trip_Date: dateStr,\n    Truck_ID: truckCtx.truck.Truck_ID,\n    Registration: truckCtx.truck.Registration,\n    Driver_ID: form.Driver_ID,\n    Traccar_Driver_UniqueId: (driverEntry && driverEntry.Mapping_Status === 'CONFIRMED') ? driverEntry.Traccar_Driver_UniqueId : '',\n    Route_ID: form.Trip_Route,\n    Trip_Start_Timestamp: aggregatedTrip.startTime,\n    Trip_End_Timestamp: aggregatedTrip.endTime,\n    GPS_Km,\n    GPS_Km_Source: 'TRIPS_REPORT_DISTANCE',\n    GPS_Km_Source_Meters: aggregatedTrip.distance,\n    GPS_Start_Odometer_Km,\n    GPS_End_Odometer_Km,\n    Claimed_Km,\n    Variance_Km,\n    GPS_Fuel_Theoretical_Litres,\n    Traccar_Fuel_Consumed_Litres,\n    Claimed_Fuel_Litres,\n    Fuel_Variance_Litres,\n    Variance_Percent,\n    Variance_PKR,\n    Flag_Colour,\n    Idle_Minutes,\n    Trip_Duration_Minutes,\n    GPS_Source: 'TRACCAR',\n    Form_Submission_Time: form.Timestamp,\n    Reconciliation_Key,\n    Idempotency_Key,\n    Fuel_variance_pct,\n    Reconciliation_Status: 'MATCHED',\n    High_Variance_Unmatched_Alert\n  }\n} }];"
+      },
+      "id": "81125225-f9f0-4b8a-af80-f5bd6f41d527",
+      "name": "Match Trip to Form Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        2064
+      ],
+      "notes": "PATCHED: toDateStr() helper replaces the fragile slice(0,10) string comparison so this survives whatever date format Sheets hands back."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.matched }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "3d5afcc0-c519-4ff0-90a3-96a1d2cd0d69"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e99e668a-c5ec-4987-8023-2f08d3a8b98d",
+      "name": "Form Match Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5552,
+        2064
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Trip_Data",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Trip_ID": "={{ $json.calc.Trip_ID }}",
+            "Trip_Date": "={{ $json.calc.Trip_Date }}",
+            "Truck_ID": "={{ $json.calc.Truck_ID }}",
+            "Registration": "={{ $json.calc.Registration }}",
+            "Driver_ID": "={{ $json.calc.Driver_ID }}",
+            "Traccar_Driver_UniqueId": "={{ $json.calc.Traccar_Driver_UniqueId }}",
+            "Route_ID": "={{ $json.calc.Route_ID }}",
+            "Trip_Start_Timestamp": "={{ $json.calc.Trip_Start_Timestamp }}",
+            "Trip_End_Timestamp": "={{ $json.calc.Trip_End_Timestamp }}",
+            "GPS_Km": "={{ $json.calc.GPS_Km }}",
+            "GPS_Km_Source": "={{ $json.calc.GPS_Km_Source }}",
+            "GPS_Km_Source_Meters": "={{ $json.calc.GPS_Km_Source_Meters }}",
+            "GPS_Start_Odometer_Km": "={{ $json.calc.GPS_Start_Odometer_Km }}",
+            "GPS_End_Odometer_Km": "={{ $json.calc.GPS_End_Odometer_Km }}",
+            "Claimed_Km": "={{ $json.calc.Claimed_Km }}",
+            "Variance_Km": "={{ $json.calc.Variance_Km }}",
+            "GPS_Fuel_Theoretical_Litres": "={{ $json.calc.GPS_Fuel_Theoretical_Litres }}",
+            "Traccar_Fuel_Consumed_Litres": "={{ $json.calc.Traccar_Fuel_Consumed_Litres }}",
+            "Claimed_Fuel_Litres": "={{ $json.calc.Claimed_Fuel_Litres }}",
+            "Fuel_Variance_Litres": "={{ $json.calc.Fuel_Variance_Litres }}",
+            "Variance_Percent": "={{ $json.calc.Variance_Percent }}",
+            "Variance_PKR": "={{ $json.calc.Variance_PKR }}",
+            "Flag_Colour": "={{ $json.calc.Flag_Colour }}",
+            "Idle_Minutes": "={{ $json.calc.Idle_Minutes }}",
+            "Trip_Duration_Minutes": "={{ $json.calc.Trip_Duration_Minutes }}",
+            "GPS_Source": "={{ $json.calc.GPS_Source }}",
+            "Form_Submission_Time": "={{ $json.calc.Form_Submission_Time }}",
+            "Reconciliation_Key": "={{ $json.calc.Reconciliation_Key }}",
+            "Idempotency_Key": "={{ $json.calc.Idempotency_Key }}",
+            "Fuel_variance_pct": "={{ $json.calc.Fuel_variance_pct }}",
+            "Reconciliation_Status": "={{ $json.calc.Reconciliation_Status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Trip_ID",
+              "displayName": "Trip_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trip_Date",
+              "displayName": "Trip_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Truck_ID",
+              "displayName": "Truck_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Registration",
+              "displayName": "Registration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Driver_ID",
+              "displayName": "Driver_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Traccar_Driver_UniqueId",
+              "displayName": "Traccar_Driver_UniqueId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Route_ID",
+              "displayName": "Route_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trip_Start_Timestamp",
+              "displayName": "Trip_Start_Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trip_End_Timestamp",
+              "displayName": "Trip_End_Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "GPS_Km",
+              "displayName": "GPS_Km",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "GPS_Km_Source",
+              "displayName": "GPS_Km_Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "GPS_Km_Source_Meters",
+              "displayName": "GPS_Km_Source_Meters",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "GPS_Start_Odometer_Km",
+              "displayName": "GPS_Start_Odometer_Km",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "GPS_End_Odometer_Km",
+              "displayName": "GPS_End_Odometer_Km",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Claimed_Km",
+              "displayName": "Claimed_Km",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Variance_Km",
+              "displayName": "Variance_Km",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "GPS_Fuel_Theoretical_Litres",
+              "displayName": "GPS_Fuel_Theoretical_Litres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Traccar_Fuel_Consumed_Litres",
+              "displayName": "Traccar_Fuel_Consumed_Litres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Claimed_Fuel_Litres",
+              "displayName": "Claimed_Fuel_Litres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fuel_Variance_Litres",
+              "displayName": "Fuel_Variance_Litres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Variance_Percent",
+              "displayName": "Variance_Percent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Variance_PKR",
+              "displayName": "Variance_PKR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Flag_Colour",
+              "displayName": "Flag_Colour",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Idle_Minutes",
+              "displayName": "Idle_Minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trip_Duration_Minutes",
+              "displayName": "Trip_Duration_Minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "GPS_Source",
+              "displayName": "GPS_Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Form_Submission_Time",
+              "displayName": "Form_Submission_Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reconciliation_Key",
+              "displayName": "Reconciliation_Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Idempotency_Key",
+              "displayName": "Idempotency_Key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fuel_variance_pct",
+              "displayName": "Fuel_variance_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Reconciliation_Status",
+              "displayName": "Reconciliation_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "c8503ea5-f690-4250-8a81-5616b57f1d3b",
+      "name": "Append Trip_Data Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5968,
+        1968
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Now also writes the new AE column High_Variance_Unmatched_Alert."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DLQ_Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "DLQ_ID": "={{ 'DLQ-' + $now.toFormat('yyyyMMddHHmmss') + '-' + $itemIndex }}",
+            "Timestamp": "={{ $now.toISO() }}",
+            "Execution_ID": "={{ $execution.id }}",
+            "Failed_Node": "Match Trip to Form Response",
+            "Record_Type": "FORM",
+            "Vehicle_ID": "={{ $json.truck.Truck_ID }}",
+            "Registration": "={{ $json.truck.Registration }}",
+            "Driver_ID": "",
+            "HTTP_Status": 200,
+            "Error_Category": "UNMATCHED",
+            "Raw_Error": "={{ $json.reason === 'NO_TRACCAR_TRIP' ? ('No Traccar trip legs >1000m found for ' + $json.truck.Traccar_Device_Name + ' on ' + $json.dateStr) : ('No Form_Responses row found for Traccar_Device_Name=' + $json.truck.Traccar_Device_Name + ' on ' + $json.dateStr) }}",
+            "Retry_Count": 0,
+            "Action_Flag": "NEEDS_MANUAL_REVIEW",
+            "Resolved_Flag": "FALSE",
+            "Resolved_At": "",
+            "Resolution_Notes": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "DLQ_ID",
+              "displayName": "DLQ_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Execution_ID",
+              "displayName": "Execution_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Failed_Node",
+              "displayName": "Failed_Node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Record_Type",
+              "displayName": "Record_Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Vehicle_ID",
+              "displayName": "Vehicle_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Registration",
+              "displayName": "Registration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Driver_ID",
+              "displayName": "Driver_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "HTTP_Status",
+              "displayName": "HTTP_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Error_Category",
+              "displayName": "Error_Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Raw_Error",
+              "displayName": "Raw_Error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Retry_Count",
+              "displayName": "Retry_Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Action_Flag",
+              "displayName": "Action_Flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolved_Flag",
+              "displayName": "Resolved_Flag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolved_At",
+              "displayName": "Resolved_At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resolution_Notes",
+              "displayName": "Resolution_Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "02f790df-213a-4371-b230-fc2e8e7b715c",
+      "name": "Append DLQ - No Form Match",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5840,
+        2208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Trip_Data",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "0adba904-b969-4e1b-8700-b4827325361a",
+      "name": "Read Trip_Data For Count",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        4720,
+        2384
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "PATCHED: alwaysOutputData=true. Without this, n8n halts the whole workflow when Trip_Data is empty (0 rows), silently killing every node downstream (DLQ count, Workflow_Run_Log). This was the actual crash confirmed in the Aug/July test run."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DLQ_Log",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "3c5e5f4c-15fa-43a9-beb1-294ef73ecaa6",
+      "name": "Read DLQ_Log For Count",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        4960,
+        2384
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "PATCHED: alwaysOutputData=true, same reason as Read Trip_Data For Count."
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED (two bugs):\n// 1) 'items' inside this Code node is the output of the node feeding it directly\n//    (Read DLQ_Log For Count), NOT Read Trip_Data For Count. The previous version\n//    did `const tripRows = items` and filtered DLQ rows for a Trip_Date field they\n//    don't have -> always 0 matched, regardless of what Trip_Data actually contained.\n//    Now explicitly pulled by node name.\n// 2) formsForToday used a naive slice(0,10) on Trip_Start_Date, which is stored as\n//    M/D/YYYY text (e.g. '7/2/2026'), not ISO -> always failed to match. Now uses the\n//    same robust date parser as Match Trip to Form Response.\nfunction toDateStr(raw) {\n  if (raw === null || raw === undefined || raw === '') return null;\n  const s = String(raw).trim();\n  if (/^\\d{4}-\\d{2}-\\d{2}/.test(s)) return s.slice(0, 10);\n  const d = new Date(s);\n  if (isNaN(d.getTime())) return null;\n  const yyyy = d.getFullYear();\n  const mm = String(d.getMonth() + 1).padStart(2, '0');\n  const dd = String(d.getDate()).padStart(2, '0');\n  return `${yyyy}-${mm}-${dd}`;\n}\n\nconst dateWindow = $('Filter Active Trucks + To Items').first().json.dateWindow;\nconst activeTrucks = $('Filter Active Trucks + To Items').all();\nconst formResponsesWrap = $('Wrap Form_Responses').first().json.formResponses;\n\nconst tripRows = $('Read Trip_Data For Count').all();\nconst tripsForToday = tripRows.filter(i => toDateStr(i.json.Trip_Date) === dateWindow.dateStr);\n\nconst dlqRows = $('Read DLQ_Log For Count').all();\nconst dlqForThisRun = dlqRows.filter(i => String(i.json.Execution_ID) === String($execution.id));\n\nconst formsForToday = formResponsesWrap.filter(f => toDateStr(f.Trip_Start_Date) === dateWindow.dateStr);\n\nconst summary = {\n  Execution_ID: $execution.id,\n  Workflow_Name: 'Fuel_Fraud_Audit_Daily_Reconcile',\n  Started_At: $execution.startedAt ? new Date($execution.startedAt).toISOString() : new Date().toISOString(),\n  Ended_At: new Date().toISOString(),\n  Run_Status: dlqForThisRun.length === 0 ? 'SUCCESS' : 'PARTIAL_SUCCESS',\n  Date_Window_Start: dateWindow.fromISO,\n  Date_Window_End: dateWindow.toISO,\n  Trips_Read: activeTrucks.length,\n  Trips_Report_Rows_Read: activeTrucks.length,\n  Notes_Endpoint_Calls: `${activeTrucks.length} calls to /api/reports/trips (one per active truck)`,\n  Forms_Read: formsForToday.length,\n  Trips_Matched: tripsForToday.length,\n  Rows_Appended: tripsForToday.length,\n  DLQ_Count: dlqForThisRun.length,\n  Notes: dlqForThisRun.length > 0\n    ? `${dlqForThisRun.length} row(s) sent to DLQ_Log this run - see Error_Category there for detail.`\n    : 'Clean run, no DLQ entries.'\n};\n\nreturn [{ json: summary }];"
+      },
+      "id": "9e95ee71-195b-4658-8d3d-28b8fcec5da9",
+      "name": "Count Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5200,
+        2384
+      ],
+      "notes": "PATCHED (2nd time): 'items' was silently referring to Read DLQ_Log For Count's output, not Trip_Data's. Now both Trip_Data and Form_Responses lookups are pulled explicitly by node name, and both use the shared toDateStr() parser instead of naive slicing."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Workflow_Run_Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Execution_ID": "={{ $json.Execution_ID }}",
+            "Workflow_Name": "={{ $json.Workflow_Name }}",
+            "Started_At": "={{ $json.Started_At }}",
+            "Ended_At": "={{ $json.Ended_At }}",
+            "Run_Status": "={{ $json.Run_Status }}",
+            "Date_Window_Start": "={{ $json.Date_Window_Start }}",
+            "Date_Window_End": "={{ $json.Date_Window_End }}",
+            "Trips_Read": "={{ $json.Trips_Read }}",
+            "Trips_Report_Rows_Read": "={{ $json.Trips_Report_Rows_Read }}",
+            "Notes_Endpoint_Calls": "={{ $json.Notes_Endpoint_Calls }}",
+            "Forms_Read": "={{ $json.Forms_Read }}",
+            "Trips_Matched": "={{ $json.Trips_Matched }}",
+            "Rows_Appended": "={{ $json.Rows_Appended }}",
+            "DLQ_Count": "={{ $json.DLQ_Count }}",
+            "Notes": "={{ $json.Notes }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Execution_ID",
+              "displayName": "Execution_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Workflow_Name",
+              "displayName": "Workflow_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Started_At",
+              "displayName": "Started_At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Ended_At",
+              "displayName": "Ended_At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Run_Status",
+              "displayName": "Run_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date_Window_Start",
+              "displayName": "Date_Window_Start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date_Window_End",
+              "displayName": "Date_Window_End",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trips_Read",
+              "displayName": "Trips_Read",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trips_Report_Rows_Read",
+              "displayName": "Trips_Report_Rows_Read",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Notes_Endpoint_Calls",
+              "displayName": "Notes_Endpoint_Calls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Forms_Read",
+              "displayName": "Forms_Read",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trips_Matched",
+              "displayName": "Trips_Matched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Rows_Appended",
+              "displayName": "Rows_Appended",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DLQ_Count",
+              "displayName": "DLQ_Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1b59c752-ed9d-4e24-aec3-000d60c92bd0",
+      "name": "Append Workflow_Run_Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5440,
+        2384
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Splits the raw Traccar /reports/trips response into one item per trip,\n// mapped to the Traccar_Trips_Raw schema, for audit logging purposes only.\n// This runs in PARALLEL to the main matching logic below -- it never\n// modifies or delays the existing Match Trip to Form Response path.\nconst truckCtx = $('Loop Trucks').item.json;\nconst body = $json.body || $json;\nconst trips = Array.isArray(body) ? body : [];\n\nconst truck = truckCtx.truck;\nconst dateWindow = truckCtx.dateWindow;\nconst nowIso = $now.toISO();\n\nif (trips.length === 0) {\n  return [];\n}\n\nreturn trips.map((t, idx) => ({\n  json: {\n    Raw_Record_ID: `RAW-${$now.toFormat('yyyyMMddHHmmss')}-${truck.Traccar_Device_Id}-${idx}`,\n    Ingested_At: nowIso,\n    Provider: 'TRACCAR',\n    Traccar_Trip_Ref: `${t.startPositionId ?? ''}-${t.endPositionId ?? ''}`,\n    Device_Id: truck.Traccar_Device_Id,\n    Registration: truck.Registration || truck.Traccar_Device_Name || '',\n    Traccar_Driver_UniqueId: t.driverUniqueId || '',\n    Start_Timestamp: t.startTime || '',\n    End_Timestamp: t.endTime || '',\n    Trip_Distance_Meters: t.distance ?? 0,\n    Spent_Fuel_Litres: t.spentFuel ?? 0,\n    Duration_Seconds: t.duration ? Math.round(t.duration / 1000) : 0,\n    Max_Speed_Knots: t.maxSpeed ?? 0,\n    Average_Speed_Knots: t.averageSpeed ?? 0,\n    Start_Address: t.startAddress || '',\n    End_Address: t.endAddress || '',\n    Source_Date_Window_Start: dateWindow.fromISO || '',\n    Source_Date_Window_End: dateWindow.toISO || '',\n    Raw_JSON: JSON.stringify(t).slice(0, 45000)\n  }\n}));"
+      },
+      "id": "4626a339-6e02-4cfc-95d6-00476d27f01c",
+      "name": "Prepare Raw Trip Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5344,
+        1552
+      ],
+      "notes": "Audit-log branch, parallel to the main matching flow. Splits Traccar's raw trip array into one row per trip for Traccar_Trips_Raw. If Traccar returned zero trips, this returns no items and the Append node below simply does nothing that run -- no error."
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16DwHErEgpzU2A2MUlbxCNuLNqEd1TSPGwjdaB01jmg0",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Traccar_Trips_Raw",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Raw_Record_ID": "={{ $json.Raw_Record_ID }}",
+            "Ingested_At": "={{ $json.Ingested_At }}",
+            "Provider": "={{ $json.Provider }}",
+            "Traccar_Trip_Ref": "={{ $json.Traccar_Trip_Ref }}",
+            "Device_Id": "={{ $json.Device_Id }}",
+            "Registration": "={{ $json.Registration }}",
+            "Traccar_Driver_UniqueId": "={{ $json.Traccar_Driver_UniqueId }}",
+            "Start_Timestamp": "={{ $json.Start_Timestamp }}",
+            "End_Timestamp": "={{ $json.End_Timestamp }}",
+            "Trip_Distance_Meters": "={{ $json.Trip_Distance_Meters }}",
+            "Spent_Fuel_Litres": "={{ $json.Spent_Fuel_Litres }}",
+            "Duration_Seconds": "={{ $json.Duration_Seconds }}",
+            "Max_Speed_Knots": "={{ $json.Max_Speed_Knots }}",
+            "Average_Speed_Knots": "={{ $json.Average_Speed_Knots }}",
+            "Start_Address": "={{ $json.Start_Address }}",
+            "End_Address": "={{ $json.End_Address }}",
+            "Source_Date_Window_Start": "={{ $json.Source_Date_Window_Start }}",
+            "Source_Date_Window_End": "={{ $json.Source_Date_Window_End }}",
+            "Raw_JSON": "={{ $json.Raw_JSON }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Raw_Record_ID",
+              "displayName": "Raw_Record_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Ingested_At",
+              "displayName": "Ingested_At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Provider",
+              "displayName": "Provider",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Traccar_Trip_Ref",
+              "displayName": "Traccar_Trip_Ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Device_Id",
+              "displayName": "Device_Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Registration",
+              "displayName": "Registration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Traccar_Driver_UniqueId",
+              "displayName": "Traccar_Driver_UniqueId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Start_Timestamp",
+              "displayName": "Start_Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "End_Timestamp",
+              "displayName": "End_Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Trip_Distance_Meters",
+              "displayName": "Trip_Distance_Meters",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Spent_Fuel_Litres",
+              "displayName": "Spent_Fuel_Litres",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duration_Seconds",
+              "displayName": "Duration_Seconds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Max_Speed_Knots",
+              "displayName": "Max_Speed_Knots",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Average_Speed_Knots",
+              "displayName": "Average_Speed_Knots",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Start_Address",
+              "displayName": "Start_Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "End_Address",
+              "displayName": "End_Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source_Date_Window_Start",
+              "displayName": "Source_Date_Window_Start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source_Date_Window_End",
+              "displayName": "Source_Date_Window_End",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Raw_JSON",
+              "displayName": "Raw_JSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "93bb35cd-d08d-4de9-8ca6-d4ecb7a11faf",
+      "name": "Append Traccar_Trips_Raw",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        5600,
+        1552
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4lEUW6YRutStEjQc",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Writes one row per raw Traccar trip, unmodified, before any matching/variance math runs. Pure audit trail -- credential must be reselected on import like every other Google Sheets node in this workflow."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 8PM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Compute Date Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Date Window": {
+      "main": [
+        [
+          {
+            "node": "Read Master_Trucks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Form_Responses",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Driver_ID_Lookup",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Config",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wrap Date Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Master_Trucks": {
+      "main": [
+        [
+          {
+            "node": "Wrap Master_Trucks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Master_Trucks": {
+      "main": [
+        [
+          {
+            "node": "Combine Reference Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Form_Responses": {
+      "main": [
+        [
+          {
+            "node": "Wrap Form_Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Form_Responses": {
+      "main": [
+        [
+          {
+            "node": "Combine Reference Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Read Driver_ID_Lookup": {
+      "main": [
+        [
+          {
+            "node": "Wrap Driver_ID_Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Driver_ID_Lookup": {
+      "main": [
+        [
+          {
+            "node": "Combine Reference Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Read Config": {
+      "main": [
+        [
+          {
+            "node": "Wrap Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Config": {
+      "main": [
+        [
+          {
+            "node": "Combine Reference Data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Wrap Date Window": {
+      "main": [
+        [
+          {
+            "node": "Combine Reference Data",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Combine Reference Data": {
+      "main": [
+        [
+          {
+            "node": "Filter Active Trucks + To Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Active Trucks + To Items": {
+      "main": [
+        [
+          {
+            "node": "Loop Trucks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Trucks": {
+      "main": [
+        [
+          {
+            "node": "Read Trip_Data For Count",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Traccar GET Trips",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traccar GET Trips": {
+      "main": [
+        [
+          {
+            "node": "Traccar Call OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traccar Call OK?": {
+      "main": [
+        [
+          {
+            "node": "Match Trip to Form Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Raw Trip Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append DLQ - Traccar Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append DLQ - Traccar Error": {
+      "main": [
+        [
+          {
+            "node": "Loop Trucks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Trip to Form Response": {
+      "main": [
+        [
+          {
+            "node": "Form Match Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form Match Found?": {
+      "main": [
+        [
+          {
+            "node": "Append Trip_Data Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append DLQ - No Form Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Trip_Data Row": {
+      "main": [
+        [
+          {
+            "node": "Loop Trucks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append DLQ - No Form Match": {
+      "main": [
+        [
+          {
+            "node": "Loop Trucks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Trip_Data For Count": {
+      "main": [
+        [
+          {
+            "node": "Read DLQ_Log For Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read DLQ_Log For Count": {
+      "main": [
+        [
+          {
+            "node": "Count Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Results": {
+      "main": [
+        [
+          {
+            "node": "Append Workflow_Run_Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Raw Trip Rows": {
+      "main": [
+        [
+          {
+            "node": "Append Traccar_Trips_Raw",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "75a456bb-2c4b-4932-b5e6-c2ea453a6906",
+  "meta": {
+    "instanceId": "8e3614ecbb797f067415d39064bc0ff479890030a44a52ba36985e5c34cc027c"
+  },
+  "nodeGroups": [],
+  "id": "TGXSTedkrAwoNyeH",
+  "tags": []
+}
